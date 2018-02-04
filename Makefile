@@ -16,8 +16,7 @@ OBJS = \
 	pipe.o\
 	proc.o\
 	sleeplock.o\
-	spawn.o\
-	pwd.o\
+	namespace.o\
 	spinlock.o\
 	string.o\
 	swtch.o\
@@ -175,7 +174,6 @@ UPROGS=\
 	_sh\
 	_stressfs\
 	_spawntest\
-	_pwdtest\
 	_usertests\
 	_wc\
 	_zombie\

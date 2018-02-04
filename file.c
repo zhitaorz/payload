@@ -76,6 +76,8 @@ fileclose(struct file *f)
     begin_op();
     iput(ff.ip);
     end_op();
+  } else if (ff.type == FD_PROC){
+    f->proc = (struct proc*) 0;
   }
 }
 
@@ -87,6 +89,9 @@ filestat(struct file *f, struct stat *st)
     ilock(f->ip);
     stati(f->ip, st);
     iunlock(f->ip);
+    return 0;
+  } else if (f->type == FD_PROC){
+    procfstat(f, st);
     return 0;
   }
   return -1;
@@ -102,6 +107,8 @@ fileread(struct file *f, char *addr, int n)
     return -1;
   if(f->type == FD_PIPE)
     return piperead(f->pipe, addr, n);
+  if(f->type == FD_PROC)
+    return procfread(f, addr, n);
   if(f->type == FD_INODE){
     ilock(f->ip);
     if((r = readi(f->ip, addr, f->off, n)) > 0)

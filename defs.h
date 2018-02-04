@@ -116,6 +116,10 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int             procfread(struct file*, char*, int);
+int             isprocf(char*);
+int             procfopen(struct file*, char*, int);
+void            procfstat(struct file *, struct stat *);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -143,6 +147,9 @@ char*           safestrcpy(char*, const char*, int);
 int             strlen(const char*);
 int             strncmp(const char*, const char*, uint);
 char*           strncpy(char*, const char*, int);
+char*           strstr(char*, char*);
+int             atoi(const char*);
+int             inttostr(int, char *, int);
 
 // syscall.c
 int             argint(int, int*);
@@ -184,9 +191,6 @@ void            clearpteu(pde_t *pgdir, char *uva);
 
 // spawn.c
 int             spawn(void);
-
-// pwd.c
-int             pwd(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

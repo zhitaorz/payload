@@ -103,3 +103,50 @@ strlen(const char *s)
   return n;
 }
 
+char*
+strstr(char *haystack, char *needle) 
+{
+  char *hp;
+  char *np;
+  for(hp = haystack; *haystack != '\0'; haystack++) {
+    for(np = needle; *np != '\0'; np++) {
+      if(*hp == '\0' || *np != *haystack) {
+        break;
+      }
+      hp += 1;
+    }
+    if(*np == '\0') {
+      return haystack;
+    }
+  }
+  return (char*) 0;
+}
+
+int
+atoi(const char *s)
+{
+  int n;
+
+  n = 0;
+  while('0' <= *s && *s <= '9')
+    n = n*10 + *s++ - '0';
+  return n;
+}
+
+int
+inttostr(int x, char *buf, int bufsize)
+{
+  char *p;
+  int digit;
+  p = buf;
+  while(x > 0 && p < buf + bufsize) {
+    digit = x % 10;
+    x /= 10;
+    *p = '0' + digit;
+  }
+  if(x > 0 || p == buf + bufsize){
+    return -1;
+  }
+  *p = '\0';
+  return 0;
+}

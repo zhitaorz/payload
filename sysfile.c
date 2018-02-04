@@ -293,6 +293,15 @@ sys_open(void)
   if(argstr(0, &path) < 0 || argint(1, &omode) < 0)
     return -1;
 
+  if(isprocf(path) == 0) {
+    if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
+      if(f)
+        fileclose(f);
+      return -1;
+    }
+    return procfopen(f, path, omode);
+  }
+
   begin_op();
 
   if(omode & O_CREATE){

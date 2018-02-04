@@ -6,6 +6,14 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "fcntl.h"
+#include "file.h"
+#include "procf.h"
+#include "stat.h"
+
+#define PROCDIR "/proc"
 
 struct {
   struct spinlock lock;
@@ -19,6 +27,7 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+static int  getprocid(char *name);
 
 void
 pinit(void)
@@ -482,4 +491,172 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int
+procfopen(struct file *f, char *name, int omode)
+{
+  struct proc *p;
+  int pid;
+
+  if(omode != O_RDONLY){
+    // Proc files are read only
+    return -1;
+  }
+  acquire(&ptable.lock);
+  f->type = FD_PROC;
+  f->off = 0;
+  f->readable = !(omode & O_WRONLY);
+  f->writable = 0;
+  f->proc = ptable.proc;
+  f->procdir = 1;
+  if(strlen(name) > strlen(PROCDIR) + 1){
+    // Referencing a specific proc
+    f->procdir = 0;
+    pid = getprocid(name);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->pid == pid){
+        f->proc = p;
+        break;
+      }
+    }
+  }
+  release(&ptable.lock);
+  return 0;
+}
+
+int
+getprocid(char *name)
+{
+  char *pid;
+  pid = name + strlen(PROCDIR);
+  return atoi(pid);
+}
+
+int
+procfread(struct file* f, char* buf, int size)
+{
+  int filesize, count, error, offset, readsize, bytesleft;
+  struct procf procf;
+  struct proc *p;
+  struct dirent de;
+
+  acquire(&ptable.lock);  
+  
+  if(f->procdir == 0){
+    // References a pid, file
+    filesize = sizeof(struct procf);
+    if (f->off - filesize >= 0) {
+      // Reading off the end of the file
+      release(&ptable.lock);
+      return -1;
+    }
+    p = f->proc;
+    // Copy over relevant info
+    procf.sz = p->sz;
+    procf.state = p->state;
+    procf.pid = p->pid;
+    procf.parent = p->parent->pid;
+    memmove(procf.name, p->name, 16);
+    procf.nsp = p->nsp;
+    if(f->off + size > filesize) {
+      size = filesize - f->off;
+    }
+    memmove(buf, ((char *)&procf) + f->off , size);
+    f->off += size;
+    release(&ptable.lock);
+    return size;
+  }
+  else{
+    bytesleft = size;
+    count = 0;
+
+    // Count number of processes remaining 
+    for(p = f->proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != UNUSED){
+        count++;
+      }
+    }
+    if (count == 0) {
+      // No processes left
+      release(&ptable.lock);
+      return -1;
+    }
+
+    while(f->proc < &ptable.proc[NPROC] && bytesleft > 0) {
+      // Find next inuse process
+      for(; f->proc < &ptable.proc[NPROC]; f->proc++){
+        if(f->proc->state != UNUSED){
+          break;
+        }
+      }
+
+      // Convert pid to a string
+      error = inttostr(f->proc->pid, de.name, DIRSIZ);
+      if (error) {
+        // Pid was to large to convert to a string of DIRSIZ
+        release(&ptable.lock);
+        return -1;
+      }
+      // Calculate offset into dirent struct (if any)
+      offset = f->off % sizeof(struct dirent);
+
+      // Calculate bytes to copy (avoid overflowing buf)
+      readsize = sizeof(struct dirent) - offset;
+      if(readsize > bytesleft){
+        readsize = bytesleft;
+      }
+      bytesleft -= readsize;
+
+      // Copy readsize bytes of dirent struct into buf
+      memmove(buf, ((char *)&de) + offset , readsize);
+      f->off += readsize;
+    }
+    release(&ptable.lock);
+    return size - bytesleft;
+  }
+}
+
+void
+procfstat(struct file *f, struct stat *st)
+{
+  struct proc *p;
+  int count = 0;
+  if(f->procdir == 0){
+    // References a pid, file
+    st->type = T_FILE;
+    st->size = sizeof(struct procf);
+  }
+  else{
+    // Proc dir
+    st->type = T_DIR;
+    // Count active processes
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != UNUSED){
+        count++;
+      }
+    }
+    release(&ptable.lock);
+    st->size = count * sizeof(struct dirent);
+  }
+}
+
+int
+isprocf(char *path)
+{
+  // Proc file path must start with "/proc"
+  char *match_start;
+  char next_char;
+  match_start = strstr(path, PROCDIR);
+  if(match_start != path){
+    return 0;
+  }
+  next_char = *(path + strlen(PROCDIR));
+  if(next_char != '/' || next_char != '\0'){
+    // Avoid incorrectly classifying paths
+    // like /process 
+    return 0;
+  }
+  return 1;
 }

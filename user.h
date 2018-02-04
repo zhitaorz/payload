@@ -24,7 +24,6 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int spawn(void); // spawn container
-int pwd(char*, int);
 
 // ulib.c
 int stat(char*, struct stat*);

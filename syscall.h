@@ -20,6 +20,4 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
-#define SYS_spawn  22 // spawn a new container environment
-#define SYS_pwd    23 // pwd
-
+#define SYS_spawn  22 // spawn a new container environment 
